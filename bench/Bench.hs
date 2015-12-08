@@ -22,7 +22,10 @@ buildTM top = do
   mapM_ (\(k,v) -> TM.insert k v x) $ [0..top] `zip` [0..top]
   return x
 
-destroyTM :: Integer -> TimeMap Key Content -> IO ()
+lookupTM :: Key -> TimeMap Key Content -> IO [Maybe Content]
+lookupTM top x = atomically $ mapM (`TM.lookup` x) [0..top]
+
+destroyTM :: Key -> TimeMap Key Content -> IO ()
 destroyTM top x = atomically $ mapM_ (`TM.delete` x) [0..top]
 
 
@@ -49,6 +52,13 @@ main = do
       , bench "30" $ whnfIO (buildTM 30)
       , bench "40" $ whnfIO (buildTM 40)
       , bench "50" $ whnfIO (buildTM 50)
+      ]
+    , bgroup "lookup"
+      [ bench "10" $ whnfIO (lookupTM 10 indiv50)
+      , bench "20" $ whnfIO (lookupTM 20 indiv50)
+      , bench "30" $ whnfIO (lookupTM 30 indiv50)
+      , bench "40" $ whnfIO (lookupTM 40 indiv50)
+      , bench "50" $ whnfIO (lookupTM 50 indiv50)
       ]
     , bgroup "delete individual"
       [ bench "10" $ whnfIO (destroyTM 10 indiv10)
