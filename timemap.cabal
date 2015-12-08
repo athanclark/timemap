@@ -34,6 +34,8 @@ Test-Suite spec
   Ghc-Options:          -Wall -threaded
   Main-Is:              Spec.hs
   Other-Modules:        Data.TimeMap
+                        Data.TimeMap.Internal
+                        Data.TimeMapSpec
   Build-Depends:        base
                       , containers
                       , hashable
@@ -54,6 +56,7 @@ Benchmark bench
   Ghc-Options:          -Wall -threaded
   Main-Is:              Bench.hs
   Other-Modules:        Data.TimeMap
+                        Data.TimeMap.Internal
   Build-Depends:        base
                       , containers
                       , hashable
@@ -74,6 +77,7 @@ Executable bench2
   Ghc-Options:          -Wall -threaded -eventlog -rtsopts
   Main-Is:              Bench2.hs
   Other-Modules:        Data.TimeMap
+                        Data.TimeMap.Internal
   Build-Depends:        base
                       , containers
                       , hashable

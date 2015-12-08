@@ -107,7 +107,7 @@ delete k xs = do
   ks <- readTVar (keysMap xs)
   case HM.lookup k ks of
     Nothing              -> return ()
-    Just (oldTime, xVar) -> do
+    Just (oldTime,_) -> do
       modifyTVar' (timeMap xs) $ MM.remove oldTime k
       modifyTVar' (keysMap xs) $ HM.delete k
 
