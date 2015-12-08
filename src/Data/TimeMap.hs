@@ -5,10 +5,11 @@ module Data.TimeMap
   , lookup
   , delete
   , after
+  , ago
   ) where
 
 import Prelude hiding (lookup)
-import Data.Time (UTCTime, getCurrentTime)
+import Data.Time (UTCTime, NominalDiffTime, addUTCTime, getCurrentTime)
 import Data.Hashable (Hashable (..))
 import qualified Data.Map              as Map
 import qualified Data.HashMap.Lazy     as HM
@@ -113,10 +114,12 @@ delete k xs = do
       return xs
 
 
--- | Filters out all entries after a certain time
+-- | Filters out all entries after a designated time
 after :: ( Hashable k
          , Eq k
-         ) => UTCTime -> TimeMap k a -> STM (TimeMap k a)
+         ) => UTCTime
+           -> TimeMap k a
+           -> STM (TimeMap k a)
 after t xs = do
   ts <- readTVar (timeMap xs)
   let (toCut, result) = Map.split t ts
@@ -125,3 +128,16 @@ after t xs = do
   modifyTVar (keysMap xs) $
     HM.filterWithKey (\k _ -> k `HS.member` toCut')
   return xs
+
+
+-- | Filters out all entries to be within some time frame
+--
+--   > ago 1000000 -- removes entities older than one second from now
+ago :: ( Hashable k
+       , Eq k
+       ) => NominalDiffTime -- ^ Assumes a positive distance into the past
+         -> TimeMap k a
+         -> IO (TimeMap k a)
+ago t xs = do
+  now <- getCurrentTime
+  atomically $ after (addUTCTime (negate t) now) xs
