@@ -54,9 +54,9 @@ main = do
     , bgroup "delete individual"
       [ bench "10" $ whnfIO (destroyTM 10 x50)
       , bench "20" $ whnfIO (destroyTM 20 x50)
-      , bench "20" $ whnfIO (destroyTM 30 x50)
-      , bench "20" $ whnfIO (destroyTM 40 x50)
-      , bench "20" $ whnfIO (destroyTM 50 x50)
+      , bench "30" $ whnfIO (destroyTM 30 x50)
+      , bench "40" $ whnfIO (destroyTM 40 x50)
+      , bench "50" $ whnfIO (destroyTM 50 x50)
       ]
     , bgroup "delete batch"
       [ bench "10" $ whnfIO (TM.ago 60 x10)

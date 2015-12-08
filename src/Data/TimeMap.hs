@@ -59,14 +59,14 @@ insert k x xs = do
       atomically $ do
         xVar <- newTVar x
         modifyTVar (timeMap xs) $ MM.insert now k
-        modifyTVar (keysMap xs) $ HM.insert k (now, xVar)
+        modifyTVar' (keysMap xs) $ HM.insert k (now, xVar)
       return xs
     Just (oldTime, xVar) -> do
       now <- getCurrentTime
       atomically $ do
         modifyTVar (timeMap xs)
           (MM.insert now k . MM.remove oldTime k)
-        modifyTVar (keysMap xs) $
+        modifyTVar' (keysMap xs) $
           HM.adjust (first $ const now) k
         writeTVar xVar x
       return xs
@@ -95,7 +95,7 @@ adjust f k xs = do
       atomically $ do
         modifyTVar (timeMap xs)
           (MM.insert now k . MM.remove oldTime k)
-        modifyTVar (keysMap xs) $
+        modifyTVar' (keysMap xs) $
           HM.adjust (first $ const now) k
         modifyTVar xVar f
       return xs
@@ -109,12 +109,14 @@ delete k xs = do
   case HM.lookup k ks of
     Nothing              -> return xs
     Just (oldTime, xVar) -> do
-      modifyTVar (timeMap xs) $ MM.remove oldTime k
-      modifyTVar (keysMap xs) $ HM.delete k
+      modifyTVar' (timeMap xs) $ MM.remove oldTime k
+      modifyTVar' (keysMap xs) $ HM.delete k
       return xs
 
 
--- | Filters out all entries after a designated time
+-- * Time-Based Filtering
+
+-- | Filters out all entries older or equal to a designated time
 after :: ( Hashable k
          , Eq k
          ) => UTCTime
@@ -133,7 +135,7 @@ after t xs = do
 
 -- | Filters out all entries to be within some time frame
 --
---   > ago 1000000 -- removes entities older than one second from now
+--   > ago 1 -- removes entities older than one second from now
 ago :: ( Hashable k
        , Eq k
        ) => NominalDiffTime -- ^ Assumes a positive distance into the past
