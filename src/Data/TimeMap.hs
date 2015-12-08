@@ -1,6 +1,8 @@
 module Data.TimeMap
   ( TimeMap
   , empty
+  , null
+  , size
   , insert
   , lookup
   , delete
@@ -8,7 +10,7 @@ module Data.TimeMap
   , ago
   ) where
 
-import Prelude hiding (lookup)
+import Prelude hiding (lookup, null)
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, getCurrentTime)
 import Data.Hashable (Hashable (..))
 import qualified Data.Map              as Map
@@ -39,6 +41,16 @@ data TimeMap k a = TimeMap
 
 empty :: STM (TimeMap k a)
 empty = TimeMap <$> newTVar MM.empty <*> newTVar HM.empty
+
+null :: TimeMap k a -> STM Bool
+null xs = do
+  ks <- readTVar (keysMap xs)
+  return (HM.null ks)
+
+size :: TimeMap k a -> STM Int
+size xs = do
+  ks <- readTVar (keysMap xs)
+  return (HM.size ks)
 
 -- | Inserts a key and value into a 'TimeMap' - note that it updates the date
 --   __and__ the value of an existing entity.

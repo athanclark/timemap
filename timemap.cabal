@@ -9,6 +9,10 @@ Synopsis:               An atomically modifiable map, implicitly indexed by UTCT
 Cabal-Version:          >= 1.10
 Build-Type:             Simple
 
+Flag ThreadScope
+  Description:          Build the threadscope benchmark
+  Default:              False
+
 Library
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
@@ -42,6 +46,41 @@ Test-Suite spec
                       , QuickCheck
                       , quickcheck-instances
 
+Benchmark bench
+  Type:                 exitcode-stdio-1.0
+  Default-Language:     Haskell2010
+  Hs-Source-Dirs:       src
+                      , bench
+  Ghc-Options:          -Wall -threaded
+  Main-Is:              Bench.hs
+  Other-Modules:        Data.TimeMap
+  Build-Depends:        base
+                      , containers
+                      , hashable
+                      , stm
+                      , time
+                      , unordered-containers
+                      , criterion
+
+Executable bench2
+  if flag(ThreadScope)
+    Buildable: True
+  else
+    Buildable: False
+  Type:                 exitcode-stdio-1.0
+  Default-Language:     Haskell2010
+  Hs-Source-Dirs:       src
+                      , bench
+  Ghc-Options:          -Wall -threaded -eventlog -rtsopts
+  Main-Is:              Bench2.hs
+  Other-Modules:        Data.TimeMap
+  Build-Depends:        base
+                      , containers
+                      , hashable
+                      , stm
+                      , time
+                      , unordered-containers
+
 Source-Repository head
   Type:                 git
---  Location:
+  Location:             https://github.com/athanclark/timemap
