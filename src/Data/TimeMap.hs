@@ -13,6 +13,7 @@ module Data.TimeMap
 import Prelude hiding (lookup, null)
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, getCurrentTime)
 import Data.Hashable (Hashable (..))
+import Data.Maybe (fromMaybe)
 import qualified Data.Map              as Map
 import qualified Data.HashMap.Lazy     as HM
 import qualified Data.HashSet          as HS
@@ -21,23 +22,13 @@ import Control.Concurrent.STM
 import Control.Arrow (first)
 
 
-newtype TimedContent k a = TimedContent
-  { getTimedContent :: (k, TVar a)
-  }
-
-instance Hashable k => Hashable (TimedContent k a) where
-  hashWithSalt i (TimedContent (k,_)) = hashWithSalt i k
-  hash (TimedContent (k,_))           = hash k
-
-instance Eq k => Eq (TimedContent k a) where
-  (TimedContent (x,_)) == (TimedContent (y,_)) = x == y
-
 data TimeMap k a = TimeMap
-  { timeMap :: TVar (MM.MultiMap UTCTime (TimedContent k a))
+  { timeMap :: TVar (MM.MultiMap UTCTime k)
   , keysMap :: TVar (HM.HashMap  k       (UTCTime, TVar a))
   }
 
 
+-- * Query
 
 empty :: STM (TimeMap k a)
 empty = TimeMap <$> newTVar MM.empty <*> newTVar HM.empty
@@ -52,6 +43,9 @@ size xs = do
   ks <- readTVar (keysMap xs)
   return (HM.size ks)
 
+
+-- * Construction
+
 -- | Inserts a key and value into a 'TimeMap' - note that it updates the date
 --   __and__ the value of an existing entity.
 insert :: ( Hashable k
@@ -64,17 +58,14 @@ insert k x xs = do
       now <- getCurrentTime
       atomically $ do
         xVar <- newTVar x
-        modifyTVar (timeMap xs) $
-          MM.insert now $ TimedContent (k, xVar)
-        modifyTVar (keysMap xs) $
-          HM.insert k (now, xVar)
+        modifyTVar (timeMap xs) $ MM.insert now k
+        modifyTVar (keysMap xs) $ HM.insert k (now, xVar)
       return xs
     Just (oldTime, xVar) -> do
-      let content = TimedContent (k, xVar)
       now <- getCurrentTime
       atomically $ do
         modifyTVar (timeMap xs)
-          (MM.insert now content . MM.remove oldTime content)
+          (MM.insert now k . MM.remove oldTime k)
         modifyTVar (keysMap xs) $
           HM.adjust (first $ const now) k
         writeTVar xVar x
@@ -100,11 +91,10 @@ adjust f k xs = do
   case HM.lookup k ks of
     Nothing              -> return xs
     Just (oldTime, xVar) -> do
-      let content = TimedContent (k, xVar)
       now <- getCurrentTime
       atomically $ do
         modifyTVar (timeMap xs)
-          (MM.insert now content . MM.remove oldTime content)
+          (MM.insert now k . MM.remove oldTime k)
         modifyTVar (keysMap xs) $
           HM.adjust (first $ const now) k
         modifyTVar xVar f
@@ -119,10 +109,8 @@ delete k xs = do
   case HM.lookup k ks of
     Nothing              -> return xs
     Just (oldTime, xVar) -> do
-      modifyTVar (timeMap xs)
-        (MM.remove oldTime $ TimedContent (k, xVar))
-      modifyTVar (keysMap xs)
-        (HM.delete k)
+      modifyTVar (timeMap xs) $ MM.remove oldTime k
+      modifyTVar (keysMap xs) $ HM.delete k
       return xs
 
 
@@ -134,11 +122,12 @@ after :: ( Hashable k
            -> STM (TimeMap k a)
 after t xs = do
   ts <- readTVar (timeMap xs)
-  let (toCut, result) = Map.split t ts
-      toCut' = HS.map (fst . getTimedContent) $ MM.elems toCut
+  let (toCut, mx, result) = Map.splitLookup t ts
+      found    = fromMaybe HS.empty mx
+      toRemove = MM.elems toCut `HS.union` found
   writeTVar (timeMap xs) result
   modifyTVar (keysMap xs) $
-    HM.filterWithKey (\k _ -> k `HS.member` toCut')
+    HM.filterWithKey (\k _ -> not $ k `HS.member` toRemove)
   return xs
 
 

@@ -13,6 +13,7 @@ import Test.Tasty.QuickCheck as QC
 import Test.QuickCheck
 import Test.QuickCheck.Instances
 
+import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM (atomically)
 
 
@@ -22,6 +23,8 @@ spec = testGroup "Data.TimeMap"
       lookupInsertExists
   , QC.testProperty "lookups should always fail after deletion"
       lookupDeleteNotExists
+  , QC.testProperty "lookups should always fail after waiting past the time"
+      lookupAgoNotExists
   ]
 
 
@@ -53,7 +56,14 @@ lookupInsertExists k v xs = ioProperty $ do
 
 lookupDeleteNotExists :: Key -> BuiltTimeMap -> Property
 lookupDeleteNotExists k xs = ioProperty $ do
-  x  <- buildTimeMap xs
+  x <- buildTimeMap xs
   atomically $ do
     x' <- TM.delete k x
     isNothing <$> TM.lookup k x'
+
+lookupAgoNotExists :: Key -> Content -> BuiltTimeMap -> Property
+lookupAgoNotExists k v xs = ioProperty $ do
+  x <- TM.insert k v =<< buildTimeMap xs
+  threadDelay 1000000
+  x' <- 1 `TM.ago` x
+  isNothing <$> atomically (TM.lookup k x')
