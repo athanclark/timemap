@@ -84,6 +84,7 @@ Executable bench2
   Build-Depends:        base
                       , containers
                       , hashable
+                      , hashtables
                       , stm
                       , time
                       , unordered-containers

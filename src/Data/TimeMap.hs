@@ -22,7 +22,6 @@ import qualified Data.HashTable.IO        as HT
 import qualified Data.HashSet             as HS
 import qualified Data.TimeMap.Internal    as MM
 import Control.Concurrent.STM
-import Control.Arrow (first)
 
 
 data TimeMap k a = TimeMap

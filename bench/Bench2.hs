@@ -9,7 +9,6 @@ import Prelude hiding (lookup)
 import Data.TimeMap (TimeMap)
 import qualified Data.TimeMap as TM
 import Control.Concurrent (threadDelay)
-import Control.Concurrent.STM
 
 
 type Key = Integer
