@@ -18,15 +18,15 @@ type Content = Integer
 
 buildTM :: Integer -> IO (TimeMap Key Content)
 buildTM top = do
-  x <- atomically $ TM.newTimeMap
+  x <- TM.newTimeMap
   mapM_ (\(k,v) -> TM.insert k v x) $ [0..top] `zip` [0..top]
   return x
 
 lookupTM :: Key -> TimeMap Key Content -> IO [Maybe Content]
-lookupTM top x = atomically $ mapM (`TM.lookup` x) [0..top]
+lookupTM top x = mapM (`TM.lookup` x) [0..top]
 
 destroyTM :: Key -> TimeMap Key Content -> IO ()
-destroyTM top x = atomically $ mapM_ (`TM.delete` x) [0..top]
+destroyTM top x = mapM_ (`TM.delete` x) [0..top]
 
 
 main :: IO ()
