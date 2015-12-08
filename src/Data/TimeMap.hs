@@ -1,13 +1,18 @@
 module Data.TimeMap
-  ( TimeMap
-  , newTimeMap
+  ( -- * Types
+    TimeMap
+  , -- * Construction
+    newTimeMap
+  , insert
+  , adjust
+  , delete
+  , -- * Query
+    lookup
   , null
   , size
-  , insert
-  , lookup
-  , delete
-  , after
-  , ago
+  , -- * Filter
+    filterSince
+  , filterAgo
   ) where
 
 import Prelude hiding (lookup, null)
@@ -28,7 +33,6 @@ data TimeMap k a = TimeMap
   }
 
 
--- * Query
 
 newTimeMap :: STM (TimeMap k a)
 newTimeMap = TimeMap <$> newTVar MM.empty <*> newTVar HM.empty
@@ -110,13 +114,13 @@ delete k xs = do
 
 -- * Time-Based Filtering
 
--- | Filters out all entries older or equal to a designated time
-after :: ( Hashable k
-         , Eq k
-         ) => UTCTime
-           -> TimeMap k a
-           -> STM ()
-after t xs = do
+-- | Filters out all entries older than or equal to a designated time
+filterSince :: ( Hashable k
+               , Eq k
+               ) => UTCTime
+                 -> TimeMap k a
+                 -> STM ()
+filterSince t xs = do
   ts <- readTVar (timeMap xs)
   let (toCut, mx, result) = Map.splitLookup t ts
       found    = fromMaybe HS.empty mx
@@ -126,14 +130,14 @@ after t xs = do
     HM.filterWithKey (\k _ -> not $ k `HS.member` toRemove)
 
 
--- | Filters out all entries to be within some time frame
+-- | Filters out all entries within some time frame
 --
---   > ago 1 -- removes entities older than one second from now
-ago :: ( Hashable k
-       , Eq k
-       ) => NominalDiffTime -- ^ Assumes a positive distance into the past
-         -> TimeMap k a
-         -> IO ()
-ago t xs = do
+--   > filterAgo 1 -- removes entities older than or equal to one second from now
+filterAgo :: ( Hashable k
+             , Eq k
+             ) => NominalDiffTime -- ^ Assumes a positive distance into the past
+               -> TimeMap k a
+               -> IO ()
+filterAgo t xs = do
   now <- getCurrentTime
-  atomically $ after (addUTCTime (negate t) now) xs
+  atomically $ filterSince (addUTCTime (negate t) now) xs

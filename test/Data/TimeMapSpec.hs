@@ -66,5 +66,5 @@ lookupAgoNotExists k v xs = ioProperty $ do
   x <- buildTimeMap xs
   TM.insert k v x
   threadDelay 1000000
-  1 `TM.ago` x
+  TM.filterAgo 1 x
   isNothing <$> atomically (TM.lookup k x)

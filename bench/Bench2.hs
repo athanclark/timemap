@@ -68,11 +68,11 @@ main = do
 
   threadDelay 1000000
 
-  TM.ago 1 x10
-  TM.ago 1 x20
-  TM.ago 1 x30
-  TM.ago 1 x40
-  TM.ago 1 x50
+  TM.filterAgo 1 x10
+  TM.filterAgo 1 x20
+  TM.filterAgo 1 x30
+  TM.filterAgo 1 x40
+  TM.filterAgo 1 x50
 
   x10agosize <- atomically $ TM.size x10
   x20agosize <- atomically $ TM.size x20
