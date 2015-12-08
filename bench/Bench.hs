@@ -18,31 +18,30 @@ type Content = Integer
 
 buildTM :: Integer -> IO (TimeMap Key Content)
 buildTM top = do
-  x <- atomically $ TM.empty
-  go x $ [0..top] `zip` [0..top]
-  where
-    go x [] = return x
-    go x ((k,v):xs) = do
-      x' <- TM.insert k v x
-      go x' xs
+  x <- atomically $ TM.newTimeMap
+  mapM_ (\(k,v) -> TM.insert k v x) $ [0..top] `zip` [0..top]
+  return x
 
-destroyTM :: Integer -> TimeMap Key Content -> IO (TimeMap Key Content)
-destroyTM top x = atomically $ go x [0..top]
-  where
-    go x [] = return x
-    go x (k:ks) = do
-      x' <- TM.delete k x
-      go x' ks
+destroyTM :: Integer -> TimeMap Key Content -> IO ()
+destroyTM top x = atomically $ mapM_ (`TM.delete` x) [0..top]
 
 
 main :: IO ()
 main = do
-  x10 <- buildTM 10
-  x20 <- buildTM 20
-  x30 <- buildTM 30
-  x40 <- buildTM 40
-  x50 <- buildTM 50
+  indiv10 <- buildTM 50
+  indiv20 <- buildTM 50
+  indiv30 <- buildTM 50
+  indiv40 <- buildTM 50
+  indiv50 <- buildTM 50
+
+  batch10 <- buildTM 10
+  batch20 <- buildTM 20
+  batch30 <- buildTM 30
+  batch40 <- buildTM 40
+  batch50 <- buildTM 50
+
   threadDelay 1000000
+
   defaultMain
     [ bgroup "build"
       [ bench "10" $ whnfIO (buildTM 10)
@@ -52,17 +51,17 @@ main = do
       , bench "50" $ whnfIO (buildTM 50)
       ]
     , bgroup "delete individual"
-      [ bench "10" $ whnfIO (destroyTM 10 x50)
-      , bench "20" $ whnfIO (destroyTM 20 x50)
-      , bench "30" $ whnfIO (destroyTM 30 x50)
-      , bench "40" $ whnfIO (destroyTM 40 x50)
-      , bench "50" $ whnfIO (destroyTM 50 x50)
+      [ bench "10" $ whnfIO (destroyTM 10 indiv10)
+      , bench "20" $ whnfIO (destroyTM 20 indiv20)
+      , bench "30" $ whnfIO (destroyTM 30 indiv30)
+      , bench "40" $ whnfIO (destroyTM 40 indiv40)
+      , bench "50" $ whnfIO (destroyTM 50 indiv50)
       ]
     , bgroup "delete batch"
-      [ bench "10" $ whnfIO (TM.ago 60 x10)
-      , bench "20" $ whnfIO (TM.ago 60 x20)
-      , bench "30" $ whnfIO (TM.ago 60 x30)
-      , bench "40" $ whnfIO (TM.ago 60 x40)
-      , bench "50" $ whnfIO (TM.ago 60 x50)
+      [ bench "10" $ whnfIO (TM.ago 1 batch10)
+      , bench "20" $ whnfIO (TM.ago 1 batch20)
+      , bench "30" $ whnfIO (TM.ago 1 batch30)
+      , bench "40" $ whnfIO (TM.ago 1 batch40)
+      , bench "50" $ whnfIO (TM.ago 1 batch50)
       ]
     ]

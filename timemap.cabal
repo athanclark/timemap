@@ -4,7 +4,7 @@ Author:                 Athan Clark <athan.clark@gmail.com>
 Maintainer:             Athan Clark <athan.clark@gmail.com>
 License:                BSD3
 License-File:           LICENSE
-Synopsis:               An atomically modifiable map, implicitly indexed by UTCTime.
+Synopsis:               A mutable map, implicitly indexed by UTCTime.
 -- Description:
 Cabal-Version:          >= 1.10
 Build-Type:             Simple

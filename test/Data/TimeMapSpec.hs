@@ -38,32 +38,33 @@ newtype BuiltTimeMap = BuiltTimeMap
 
 buildTimeMap :: BuiltTimeMap -> IO (TimeMap Key Content)
 buildTimeMap xs = do
-  x <- atomically TM.empty
+  x <- atomically TM.newTimeMap
   go (getBuiltTimeMap xs) x
   where
     go [] x = return x
     go ((k,v):vs) x = do
-      x' <- TM.insert k v x
-      go vs x'
+      TM.insert k v x
+      go vs x
 
 
 lookupInsertExists :: Key -> Content -> BuiltTimeMap -> Property
 lookupInsertExists k v xs = ioProperty $ do
   x  <- buildTimeMap xs
-  x' <- TM.insert k v x
-  isJust <$> atomically (TM.lookup k x')
+  TM.insert k v x
+  isJust <$> atomically (TM.lookup k x)
 
 
 lookupDeleteNotExists :: Key -> BuiltTimeMap -> Property
 lookupDeleteNotExists k xs = ioProperty $ do
   x <- buildTimeMap xs
   atomically $ do
-    x' <- TM.delete k x
-    isNothing <$> TM.lookup k x'
+    TM.delete k x
+    isNothing <$> TM.lookup k x
 
 lookupAgoNotExists :: Key -> Content -> BuiltTimeMap -> Property
 lookupAgoNotExists k v xs = ioProperty $ do
-  x <- TM.insert k v =<< buildTimeMap xs
+  x <- buildTimeMap xs
+  TM.insert k v x
   threadDelay 1000000
-  x' <- 1 `TM.ago` x
-  isNothing <$> atomically (TM.lookup k x')
+  1 `TM.ago` x
+  isNothing <$> atomically (TM.lookup k x)

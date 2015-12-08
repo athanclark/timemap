@@ -19,9 +19,10 @@ insert k x = Map.insertWith (HS.union) k (HS.singleton x)
 
 lookup :: ( Ord k
           ) => k -> MultiMap k a -> HS.HashSet a
-lookup k xs = case Map.lookup k xs of
-                Nothing -> HS.empty
-                Just ys -> ys
+lookup k xs =
+  case Map.lookup k xs of
+    Nothing -> HS.empty
+    Just ys -> ys
 
 -- | Deletes all elements at @k@
 delete :: ( Ord k

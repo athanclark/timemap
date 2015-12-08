@@ -1,6 +1,6 @@
 module Data.TimeMap
   ( TimeMap
-  , empty
+  , newTimeMap
   , null
   , size
   , insert
@@ -30,8 +30,8 @@ data TimeMap k a = TimeMap
 
 -- * Query
 
-empty :: STM (TimeMap k a)
-empty = TimeMap <$> newTVar MM.empty <*> newTVar HM.empty
+newTimeMap :: STM (TimeMap k a)
+newTimeMap = TimeMap <$> newTVar MM.empty <*> newTVar HM.empty
 
 null :: TimeMap k a -> STM Bool
 null xs = do
@@ -50,26 +50,22 @@ size xs = do
 --   __and__ the value of an existing entity.
 insert :: ( Hashable k
           , Eq k
-          ) => k -> a -> TimeMap k a -> IO (TimeMap k a)
+          ) => k -> a -> TimeMap k a -> IO ()
 insert k x xs = do
   ks <- readTVarIO (keysMap xs)
-  case HM.lookup k ks of
-    Nothing -> do
-      now <- getCurrentTime
-      atomically $ do
-        xVar <- newTVar x
-        modifyTVar (timeMap xs) $ MM.insert now k
-        modifyTVar' (keysMap xs) $ HM.insert k (now, xVar)
-      return xs
-    Just (oldTime, xVar) -> do
-      now <- getCurrentTime
-      atomically $ do
-        modifyTVar (timeMap xs)
-          (MM.insert now k . MM.remove oldTime k)
-        modifyTVar' (keysMap xs) $
-          HM.adjust (first $ const now) k
-        writeTVar xVar x
-      return xs
+  now <- getCurrentTime
+  atomically $
+    case HM.lookup k ks of
+      Nothing -> do
+          xVar <- newTVar x
+          modifyTVar (timeMap xs) $ MM.insert now k
+          modifyTVar' (keysMap xs) $ HM.insert k (now, xVar)
+      Just (oldTime, xVar) -> do
+          modifyTVar (timeMap xs)
+            (MM.insert now k . MM.remove oldTime k)
+          modifyTVar' (keysMap xs) $
+            HM.adjust (first $ const now) k
+          writeTVar xVar x
 
 
 lookup :: ( Hashable k
@@ -85,11 +81,11 @@ lookup k xs = do
 -- | Adjusts the value at @k@, while updating its time.
 adjust :: ( Hashable k
           , Eq k
-          ) => (a -> a) -> k -> TimeMap k a -> IO (TimeMap k a)
+          ) => (a -> a) -> k -> TimeMap k a -> IO ()
 adjust f k xs = do
   ks <- readTVarIO (keysMap xs)
   case HM.lookup k ks of
-    Nothing              -> return xs
+    Nothing              -> return ()
     Just (oldTime, xVar) -> do
       now <- getCurrentTime
       atomically $ do
@@ -98,20 +94,18 @@ adjust f k xs = do
         modifyTVar' (keysMap xs) $
           HM.adjust (first $ const now) k
         modifyTVar xVar f
-      return xs
 
 
 delete :: ( Hashable k
           , Eq k
-          ) => k -> TimeMap k a -> STM (TimeMap k a)
+          ) => k -> TimeMap k a -> STM ()
 delete k xs = do
   ks <- readTVar (keysMap xs)
   case HM.lookup k ks of
-    Nothing              -> return xs
+    Nothing              -> return ()
     Just (oldTime, xVar) -> do
       modifyTVar' (timeMap xs) $ MM.remove oldTime k
       modifyTVar' (keysMap xs) $ HM.delete k
-      return xs
 
 
 -- * Time-Based Filtering
@@ -121,7 +115,7 @@ after :: ( Hashable k
          , Eq k
          ) => UTCTime
            -> TimeMap k a
-           -> STM (TimeMap k a)
+           -> STM ()
 after t xs = do
   ts <- readTVar (timeMap xs)
   let (toCut, mx, result) = Map.splitLookup t ts
@@ -130,7 +124,6 @@ after t xs = do
   writeTVar (timeMap xs) result
   modifyTVar (keysMap xs) $
     HM.filterWithKey (\k _ -> not $ k `HS.member` toRemove)
-  return xs
 
 
 -- | Filters out all entries to be within some time frame
@@ -140,7 +133,7 @@ ago :: ( Hashable k
        , Eq k
        ) => NominalDiffTime -- ^ Assumes a positive distance into the past
          -> TimeMap k a
-         -> IO (TimeMap k a)
+         -> IO ()
 ago t xs = do
   now <- getCurrentTime
   atomically $ after (addUTCTime (negate t) now) xs

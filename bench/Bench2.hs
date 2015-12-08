@@ -17,21 +17,12 @@ type Content = Integer
 
 buildTM :: Integer -> IO (TimeMap Key Content)
 buildTM top = do
-  x <- atomically $ TM.empty
-  go x $ [0..top] `zip` [0..top]
-  where
-    go x [] = return x
-    go x ((k,v):xs) = do
-      x' <- TM.insert k v x
-      go x' xs
+  x <- atomically $ TM.newTimeMap
+  mapM_ (\(k,v) -> TM.insert k v x) $ [0..top] `zip` [0..top]
+  return x
 
-destroyTM :: Integer -> TimeMap Key Content -> IO (TimeMap Key Content)
-destroyTM top x = atomically $ go x [0..top]
-  where
-    go x [] = return x
-    go x (k:ks) = do
-      x' <- TM.delete k x
-      go x' ks
+destroyTM :: [Integer] -> TimeMap Key Content -> IO ()
+destroyTM ds x = atomically $ mapM_ (`TM.delete` x) ds
 
 
 main :: IO ()
@@ -54,19 +45,20 @@ main = do
   putStrLn $ "Size x40: " ++ show x40size
   putStrLn $ "Size x50: " ++ show x50size
 
-  threadDelay 1000000
+  threadDelay 500000
 
-  x50m10 <- destroyTM 1000 x50
-  x50m20 <- destroyTM 2000 x50
-  x50m30 <- destroyTM 3000 x50
-  x50m40 <- destroyTM 4000 x50
-  x50m50 <- destroyTM 5000 x50
+  fresh  <- buildTM 5000
 
-  x50m10size <- atomically $ TM.size x50m10
-  x50m20size <- atomically $ TM.size x50m20
-  x50m30size <- atomically $ TM.size x50m30
-  x50m40size <- atomically $ TM.size x50m40
-  x50m50size <- atomically $ TM.size x50m50
+  destroyTM [0..1000]    fresh
+  x50m10size <- atomically $ TM.size fresh
+  destroyTM [1001..2000] fresh
+  x50m20size <- atomically $ TM.size fresh
+  destroyTM [2001..3000] fresh
+  x50m30size <- atomically $ TM.size fresh
+  destroyTM [3001..4000] fresh
+  x50m40size <- atomically $ TM.size fresh
+  destroyTM [4001..5000] fresh
+  x50m50size <- atomically $ TM.size fresh
 
   putStrLn $ "Size x50m10: " ++ show x50m10size
   putStrLn $ "Size x50m20: " ++ show x50m20size
@@ -76,17 +68,17 @@ main = do
 
   threadDelay 1000000
 
-  x10ago <- TM.ago 60 x10
-  x20ago <- TM.ago 60 x20
-  x30ago <- TM.ago 60 x30
-  x40ago <- TM.ago 60 x40
-  x50ago <- TM.ago 60 x50
+  TM.ago 1 x10
+  TM.ago 1 x20
+  TM.ago 1 x30
+  TM.ago 1 x40
+  TM.ago 1 x50
 
-  x10agosize <- atomically $ TM.size x10ago
-  x20agosize <- atomically $ TM.size x20ago
-  x30agosize <- atomically $ TM.size x30ago
-  x40agosize <- atomically $ TM.size x40ago
-  x50agosize <- atomically $ TM.size x50ago
+  x10agosize <- atomically $ TM.size x10
+  x20agosize <- atomically $ TM.size x20
+  x30agosize <- atomically $ TM.size x30
+  x40agosize <- atomically $ TM.size x40
+  x50agosize <- atomically $ TM.size x50
 
   putStrLn $ "Size x10ago: " ++ show x10agosize
   putStrLn $ "Size x20ago: " ++ show x20agosize
