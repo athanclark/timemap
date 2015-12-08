@@ -44,9 +44,9 @@ main = do
 
   threadDelay 1000000
 
-  TM.filterAgo 1 x10
-  TM.filterAgo 1 x20
-  TM.filterAgo 1 x30
-  TM.filterAgo 1 x40
-  TM.filterAgo 1 x50
+  TM.filterFromNow 1 x10
+  TM.filterFromNow 1 x20
+  TM.filterFromNow 1 x30
+  TM.filterFromNow 1 x40
+  TM.filterFromNow 1 x50
 

@@ -1,3 +1,20 @@
+{- |
+Module      : Data.TimeMap
+Copyright   : (c) 2015 Athan Clark
+
+License     : BSD-3
+Maintainer  : athan.clark@gmail.com
+Stability   : experimental
+Portability : GHC
+
+A time-indexed mutable map for hashable keys.
+
+The goal of this map is to provide moderately fast lookups and insertions for
+key/value pairs, while implicitly keeping track of the last modification time of
+each entity. The auxilliary time data is used for 'filterSince' and 'filterFromNow',
+which quickly prune the data set to get rid of old entities.
+-}
+
 module Data.TimeMap
   ( -- * Types
     TimeMap
@@ -10,7 +27,7 @@ module Data.TimeMap
     lookup
   , -- * Filter
     filterSince
-  , filterAgo
+  , filterFromNow
   ) where
 
 import Prelude hiding (lookup, null)
@@ -24,6 +41,7 @@ import qualified Data.TimeMap.Internal    as MM
 import Control.Concurrent.STM
 
 
+-- | A mutable reference for a time-indexed map, similar to a 'Data.STRef.STRef'.
 data TimeMap k a = TimeMap
   { timeMap :: TVar (MM.MultiMap UTCTime k)
   , keysMap :: HT.CuckooHashTable k (UTCTime, TVar a)
@@ -31,15 +49,14 @@ data TimeMap k a = TimeMap
 
 
 
+
+-- | Create a fresh, empty map.
 newTimeMap :: IO (TimeMap k a)
 newTimeMap = TimeMap <$> atomically (newTVar MM.empty)
                      <*> HT.new
 
-
--- * Construction
-
--- | Inserts a key and value into a 'TimeMap' - note that it updates the date
---   __and__ the value of an existing entity.
+-- | Inserts a key and value into a 'TimeMap' - it adds the value
+--   or overwites an existing entity.
 insert :: ( Hashable k
           , Eq k
           ) => k -> a -> TimeMap k a -> IO ()
@@ -59,7 +76,7 @@ insert k x xs = do
         return xVar
   HT.insert (keysMap xs) k (now, xVar)
 
-
+-- | Performs a non-mutating lookup for some key.
 lookup :: ( Hashable k
           , Eq k
           ) => k -> TimeMap k a -> IO (Maybe a)
@@ -87,6 +104,7 @@ adjust f k xs = do
       HT.insert (keysMap xs) k (now, xVar)
 
 
+-- | Deletes the value at @k@.
 delete :: ( Hashable k
           , Eq k
           ) => k -> TimeMap k a -> IO ()
@@ -99,7 +117,6 @@ delete k xs = do
       HT.delete (keysMap xs) k
 
 
--- * Time-Based Filtering
 
 -- | Filters out all entries older than or equal to a designated time
 filterSince :: ( Hashable k
@@ -120,12 +137,12 @@ filterSince t xs = do
 
 -- | Filters out all entries within some time frame
 --
---   > filterAgo 1 -- removes entities older than or equal to one second from now
-filterAgo :: ( Hashable k
-             , Eq k
-             ) => NominalDiffTime -- ^ Assumes a positive distance into the past
-               -> TimeMap k a
-               -> IO ()
-filterAgo t xs = do
+--   > filterFromNow 1 -- removes entities older than or equal to one second from now
+filterFromNow :: ( Hashable k
+                 , Eq k
+                 ) => NominalDiffTime -- ^ Assumes a positive distance into the past
+                   -> TimeMap k a
+                   -> IO ()
+filterFromNow t xs = do
   now <- getCurrentTime
   filterSince (addUTCTime (negate t) now) xs

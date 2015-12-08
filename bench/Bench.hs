@@ -67,10 +67,10 @@ main = do
       , bench "50" $ whnfIO (destroyTM 50 indiv50)
       ]
     , bgroup "delete batch"
-      [ bench "10" $ whnfIO (TM.filterAgo 1 batch10)
-      , bench "20" $ whnfIO (TM.filterAgo 1 batch20)
-      , bench "30" $ whnfIO (TM.filterAgo 1 batch30)
-      , bench "40" $ whnfIO (TM.filterAgo 1 batch40)
-      , bench "50" $ whnfIO (TM.filterAgo 1 batch50)
+      [ bench "10" $ whnfIO (TM.filterFromNow 1 batch10)
+      , bench "20" $ whnfIO (TM.filterFromNow 1 batch20)
+      , bench "30" $ whnfIO (TM.filterFromNow 1 batch30)
+      , bench "40" $ whnfIO (TM.filterFromNow 1 batch40)
+      , bench "50" $ whnfIO (TM.filterFromNow 1 batch50)
       ]
     ]

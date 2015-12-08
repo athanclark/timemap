@@ -62,7 +62,7 @@ lookupAgoNotExists k v xs = ioProperty $ do
   x <- buildTimeMap xs
   TM.insert k v x
   threadDelay 1000000
-  TM.filterAgo 1 x
+  TM.filterFromNow 1 x
   isNothing <$> TM.lookup k x
 
 lookupAgoExists :: Key -> Content -> BuiltTimeMap -> Property
@@ -70,5 +70,5 @@ lookupAgoExists k v xs = ioProperty $ do
   x <- buildTimeMap xs
   TM.insert k v x
   threadDelay 500000
-  TM.filterAgo 1 x
+  TM.filterFromNow 1 x
   isJust <$> TM.lookup k x

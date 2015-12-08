@@ -4,10 +4,11 @@ Author:                 Athan Clark <athan.clark@gmail.com>
 Maintainer:             Athan Clark <athan.clark@gmail.com>
 License:                BSD3
 License-File:           LICENSE
-Synopsis:               A mutable map, implicitly indexed by UTCTime.
+Synopsis:               A mutable hashmap, implicitly indexed by UTCTime.
 -- Description:
 Cabal-Version:          >= 1.10
 Build-Type:             Simple
+Category:               Data, Time
 
 Flag ThreadScope
   Description:          Build the threadscope benchmark
@@ -73,7 +74,6 @@ Executable bench2
     Buildable: True
   else
     Buildable: False
-  Type:                 exitcode-stdio-1.0
   Default-Language:     Haskell2010
   Hs-Source-Dirs:       src
                       , bench
