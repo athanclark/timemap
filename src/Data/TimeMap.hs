@@ -25,6 +25,8 @@ module Data.TimeMap
   , delete
   , -- * Query
     lookup
+  , keys
+  , elems
   , -- * Filter
     filterSince
   , filterFromNow
@@ -85,6 +87,16 @@ lookup k xs = do
   case mEnt of
     Nothing        -> return Nothing
     Just (_, xVar) -> Just <$> readTVarIO xVar
+
+keys :: ( Hashable k
+        , Eq k
+        ) => TimeMap k a -> IO (HS.HashSet k)
+keys xs = MM.elems <$> readTVarIO (timeMap xs)
+
+elems :: TimeMap k a -> IO [a]
+elems xs = do
+  refs <- HT.foldM (\acc (_,(_,v)) -> return $ acc ++ [v]) [] (keysMap xs)
+  atomically $ mapM readTVar refs
 
 
 -- | Adjusts the value at @k@, while updating its time.
