@@ -25,10 +25,11 @@ module Data.TimeMap
   , delete
   , -- * Query
     lookup
+  , timeOf
+  , ageOf
   , keys
   , elems
   , null
-  , ageOf
   , -- * Filter
     filter
   , filterWithKey
@@ -37,7 +38,7 @@ module Data.TimeMap
   ) where
 
 import Prelude hiding (lookup, null, filter)
-import Data.Time (UTCTime, NominalDiffTime, addUTCTime, getCurrentTime)
+import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, getCurrentTime)
 import Data.Hashable (Hashable (..))
 import Data.Maybe (fromMaybe)
 import qualified Data.Map                 as Map
@@ -103,13 +104,20 @@ elems xs = L.toList $ (snd . snd) <$> HT.stream (keysMap xs)
 null :: TimeMap k a -> STM Bool
 null xs = HT.null (keysMap xs)
 
-ageOf :: ( Hashable k
-         , Eq k
-         ) => k -> TimeMap k a -> STM (Maybe UTCTime)
-ageOf k xs = do
+timeOf :: ( Hashable k
+          , Eq k
+          ) => k -> TimeMap k a -> STM (Maybe UTCTime)
+timeOf k xs = do
   mx <- HT.lookup k (keysMap xs)
   pure (fst <$> mx)
 
+ageOf :: ( Hashable k
+         , Eq k
+         ) => k -> TimeMap k a -> IO (Maybe NominalDiffTime)
+ageOf k xs = do
+  now <- getCurrentTime
+  mt  <- atomically (timeOf k xs)
+  pure (diffUTCTime now <$> mt)
 
 
 -- | Adjusts the value at @k@, while updating its time.
