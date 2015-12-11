@@ -27,12 +27,16 @@ module Data.TimeMap
     lookup
   , keys
   , elems
+  , null
+  , ageOf
   , -- * Filter
-    filterSince
+    filter
+  , filterWithKey
+  , filterSince
   , filterFromNow
   ) where
 
-import Prelude hiding (lookup, null)
+import Prelude hiding (lookup, null, filter)
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, getCurrentTime)
 import Data.Hashable (Hashable (..))
 import Data.Maybe (fromMaybe)
@@ -96,6 +100,18 @@ elems :: TimeMap k a -> STM [a]
 elems xs = L.toList $ (snd . snd) <$> HT.stream (keysMap xs)
 
 
+null :: TimeMap k a -> STM Bool
+null xs = HT.null (keysMap xs)
+
+ageOf :: ( Hashable k
+         , Eq k
+         ) => k -> TimeMap k a -> STM (Maybe UTCTime)
+ageOf k xs = do
+  mx <- HT.lookup k (keysMap xs)
+  pure (fst <$> mx)
+
+
+
 -- | Adjusts the value at @k@, while updating its time.
 adjust :: ( Hashable k
           , Eq k
@@ -122,6 +138,27 @@ delete k xs = do
         Nothing          -> pure ()
         Just (oldTime,_) -> modifyTVar' (timeMap xs) (MM.remove oldTime k)
       pure ((), F.Remove)
+
+
+
+filter :: ( Hashable k
+          , Eq k
+          ) => (a -> Bool) -> TimeMap k a -> STM ()
+filter p = filterWithKey (const p)
+
+
+filterWithKey :: ( Hashable k
+                 , Eq k
+                 ) => (k -> a -> Bool) -> TimeMap k a -> STM ()
+filterWithKey p xs = do
+  ks <- (HS.toList . MM.elems) <$> readTVar (timeMap xs)
+  mapM_ go ks
+  where
+    go k = HT.focus go' k (keysMap xs)
+      where
+        go' (Just (_,x)) | p k x     = pure ((), F.Keep)
+                         | otherwise = pure ((), F.Remove)
+        go' Nothing      = pure ((), F.Keep)
 
 
 -- | Filters out all entries older than or equal to a designated time
