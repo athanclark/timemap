@@ -21,6 +21,7 @@ module Data.TimeMap
   , -- * Construction
     newTimeMap
   , insert
+  , update
   , adjust
   , delete
   , -- * Query
@@ -29,6 +30,7 @@ module Data.TimeMap
   , ageOf
   , keys
   , elems
+  , size
   , null
   , -- * Filter
     filter
@@ -100,6 +102,8 @@ keys xs = MM.elems <$> readTVar (timeMap xs)
 elems :: TimeMap k a -> STM [a]
 elems xs = L.toList $ (snd . snd) <$> HT.stream (keysMap xs)
 
+size :: TimeMap k a -> STM Int
+size xs = length <$> elems xs
 
 null :: TimeMap k a -> STM Bool
 null xs = HT.null (keysMap xs)
@@ -118,6 +122,25 @@ ageOf k xs = do
   now <- getCurrentTime
   mt  <- atomically (timeOf k xs)
   pure (diffUTCTime now <$> mt)
+
+
+-- | Updates or deletes the value at @k@, while updating its time.
+update :: ( Hashable k
+          , Eq k
+          ) => (a -> Maybe a) -> k -> TimeMap k a -> IO ()
+update p k xs = do
+  now <- getCurrentTime
+  atomically $ HT.focus (go now) k (keysMap xs)
+  where
+    go _ Nothing = pure ((), F.Keep)
+    go now (Just (oldTime, y)) =
+      let (action,minsert) =
+            case p y of
+              Nothing -> (F.Remove           , MM.remove oldTime k)
+              Just y' -> (F.Replace (now, y'), id)
+      in do modifyTVar (timeMap xs) (MM.insert now k . minsert)
+            pure ((), action)
+
 
 
 -- | Adjusts the value at @k@, while updating its time.
