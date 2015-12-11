@@ -1,8 +1,8 @@
 module Data.TimeMap.Internal where
 
 import Data.Hashable (Hashable)
-import qualified Data.Map     as Map
-import qualified Data.HashSet as HS
+import qualified Data.Map.Strict as Map
+import qualified Data.HashSet    as HS
 
 
 type MultiMap k a = Map.Map k (HS.HashSet a)
@@ -11,11 +11,15 @@ type MultiMap k a = Map.Map k (HS.HashSet a)
 empty :: MultiMap k a
 empty = Map.empty
 
+{-# INLINEABLE empty #-}
+
 insert :: ( Ord k
           , Hashable a
           , Eq a
           ) => k -> a -> MultiMap k a -> MultiMap k a
 insert k x = Map.insertWith (HS.union) k (HS.singleton x)
+
+{-# INLINEABLE insert #-}
 
 lookup :: ( Ord k
           ) => k -> MultiMap k a -> HS.HashSet a
@@ -24,10 +28,14 @@ lookup k xs =
     Nothing -> HS.empty
     Just ys -> ys
 
+{-# INLINEABLE lookup #-}
+
 -- | Deletes all elements at @k@
 delete :: ( Ord k
           ) => k -> MultiMap k a -> MultiMap k a
 delete = Map.delete
+
+{-# INLINEABLE delete #-}
 
 -- | Deletes only the element @a@ from the referenced key @k@
 remove :: ( Ord k
@@ -41,7 +49,11 @@ remove k x = Map.update go k
               then Nothing
               else Just s'
 
+{-# INLINEABLE remove #-}
+
 elems :: ( Hashable a
          , Eq a
          ) => MultiMap k a -> HS.HashSet a
 elems = foldr HS.union HS.empty
+
+{-# INLINEABLE elems #-}

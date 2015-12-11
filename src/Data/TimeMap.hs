@@ -45,7 +45,7 @@ import Prelude hiding (lookup, null, filter)
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, getCurrentTime)
 import Data.Hashable (Hashable (..))
 import Data.Maybe (fromMaybe)
-import qualified Data.Map                 as Map
+import qualified Data.Map.Strict          as Map
 import qualified Data.HashSet             as HS
 import qualified Data.TimeMap.Internal    as MM
 import qualified STMContainers.Map        as HT
@@ -62,8 +62,8 @@ data TimeIndexed a = TimeIndexed
 
 -- | A mutable reference for a time-indexed map, similar to a 'Data.STRef.STRef'.
 data TimeMap k a = TimeMap
-  { timeMap :: TVar (MM.MultiMap UTCTime k)
-  , keysMap :: HT.Map k (UTCTime, a)
+  { timeMap :: {-# UNPACK #-} !(TVar (MM.MultiMap UTCTime k))
+  , keysMap :: {-# UNPACK #-} !(HT.Map k (TimeIndexed a))
   }
 
 
@@ -74,22 +74,26 @@ newTimeMap :: STM (TimeMap k a)
 newTimeMap = TimeMap <$> newTVar MM.empty
                      <*> HT.new
 
+{-# INLINEABLE newTimeMap #-}
+
 -- | Inserts a key and value into a 'TimeMap' - it adds the value
 --   or overwites an existing entity.
 insert :: ( Hashable k
           , Eq k
           ) => k -> a -> TimeMap k a -> IO ()
-insert k x xs = do
-  now <- getCurrentTime
+insert !k x xs = do
+  !now <- getCurrentTime
   atomically $ HT.focus (go now) k (keysMap xs)
   where
     go now mx = do
       modifyTVar (timeMap xs) $
         let changeOld = case mx of
-                          Nothing          -> id
-                          Just (oldTime,_) -> MM.remove oldTime k
+                          Nothing                      -> id
+                          Just (TimeIndexed oldTime _) -> MM.remove oldTime k
         in MM.insert now k . changeOld
-      pure ((), F.Replace (now, x))
+      pure $! ((), F.Replace (TimeIndexed now x))
+
+{-# INLINEABLE insert #-}
 
 
 -- | Performs a non-mutating lookup for some key.
@@ -98,7 +102,9 @@ lookup :: ( Hashable k
           ) => k -> TimeMap k a -> STM (Maybe a)
 lookup k xs = do
   mx <- HT.lookup k (keysMap xs)
-  pure (snd <$> mx)
+  pure (indexedValue <$> mx)
+
+{-# INLINEABLE lookup #-}
 
 
 keys :: ( Hashable k
@@ -106,20 +112,28 @@ keys :: ( Hashable k
         ) => TimeMap k a -> STM (HS.HashSet k)
 keys xs = MM.elems <$> readTVar (timeMap xs)
 
+{-# INLINEABLE keys #-}
+
 
 elems :: TimeMap k a -> STM [a]
-elems xs = L.toList $ (snd . snd) <$> HT.stream (keysMap xs)
+elems xs = L.toList $ (indexedValue . snd) <$> HT.stream (keysMap xs)
+
+{-# INLINEABLE elems #-}
 
 
 null :: TimeMap k a -> STM Bool
 null xs = HT.null (keysMap xs)
+
+{-# INLINEABLE null #-}
 
 timeOf :: ( Hashable k
           , Eq k
           ) => k -> TimeMap k a -> STM (Maybe UTCTime)
 timeOf k xs = do
   mx <- HT.lookup k (keysMap xs)
-  pure (fst <$> mx)
+  pure (indexedTime <$> mx)
+
+{-# INLINEABLE timeOf #-}
 
 ageOf :: ( Hashable k
          , Eq k
@@ -128,6 +142,8 @@ ageOf k xs = do
   now <- getCurrentTime
   mt  <- atomically (timeOf k xs)
   pure (diffUTCTime now <$> mt)
+
+{-# INLINEABLE ageOf #-}
 
 
 -- | Adjusts the value at @k@, while updating its time.
@@ -139,9 +155,11 @@ adjust f k xs = do
   atomically $ HT.focus (go now) k (keysMap xs)
   where
     go _ Nothing = pure ((), F.Keep)
-    go now (Just (oldTime, y)) = do
+    go now (Just (TimeIndexed oldTime y)) = do
       modifyTVar (timeMap xs) (MM.insert now k . MM.remove oldTime k)
-      pure ((), F.Replace (now, f y))
+      pure ((), F.Replace (TimeIndexed now $ f y))
+
+{-# INLINEABLE adjust #-}
 
 
 -- | Deletes the value at @k@.
@@ -154,8 +172,10 @@ delete k xs = do
     go mx = do
       case mx of
         Nothing          -> pure ()
-        Just (oldTime,_) -> modifyTVar' (timeMap xs) (MM.remove oldTime k)
+        Just (TimeIndexed oldTime _) -> modifyTVar' (timeMap xs) (MM.remove oldTime k)
       pure ((), F.Remove)
+
+{-# INLINEABLE delete #-}
 
 
 
@@ -163,6 +183,8 @@ filter :: ( Hashable k
           , Eq k
           ) => (a -> Bool) -> TimeMap k a -> STM ()
 filter p = filterWithKey (const p)
+
+{-# INLINEABLE filter #-}
 
 
 filterWithKey :: ( Hashable k
@@ -174,9 +196,11 @@ filterWithKey p xs = do
   where
     go k = HT.focus go' k (keysMap xs)
       where
-        go' (Just (_,x)) | p k x     = pure ((), F.Keep)
-                         | otherwise = pure ((), F.Remove)
-        go' Nothing      = pure ((), F.Keep)
+        go' (Just (TimeIndexed _ x)) | p k x     = pure ((), F.Keep)
+                                     | otherwise = pure ((), F.Remove)
+        go' Nothing                              = pure ((), F.Keep)
+
+{-# INLINEABLE filterWithKey #-}
 
 
 -- | Filters out all entries older than or equal to a designated time
@@ -193,6 +217,8 @@ filterSince t xs = do
   writeTVar (timeMap xs) result
   mapM_ (\k -> HT.delete k $ keysMap xs) (HS.toList toRemove)
 
+{-# INLINEABLE filterSince #-}
+
 
 -- | Filters out all entries within some time frame
 --
@@ -205,3 +231,5 @@ filterFromNow :: ( Hashable k
 filterFromNow t xs = do
   now <- getCurrentTime
   atomically $ filterSince (addUTCTime (negate t) now) xs
+
+{-# INLINEABLE filterFromNow #-}
