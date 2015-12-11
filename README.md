@@ -8,11 +8,13 @@ by their last-modified time. Useful for keyed caches.
 
 ```haskell
 import qualified Data.TimeMap as TM
+import Control.Concurrent.STM
+
 
 main :: IO ()
 main = do
   -- create a new, empty reference
-  mapRef <- TM.newTimeMap
+  mapRef <- atomically TM.newTimeMap
 
   -- insert a new key/value pair in the map. Note that
   -- `someKey` should implement `Hashable`. This also
@@ -27,10 +29,10 @@ main = do
   threadDelay 1000000
 
   -- delete all values older than 1 second from now.
-  TM.filterFromNow 1 mapRef
+  atomically $ TM.filterFromNow 1 mapRef
 
   -- Will return `Nothing`
-  TM.lookup someKey mapRef
+  atomically $ TM.lookup someKey mapRef
 
   return ()
 ```
@@ -40,34 +42,33 @@ main = do
 There are two internal maps for a `TimeMap k a`:
 
 - a "time-indexed" map reference: `TVar (Map UTCTime (HashSet k))`
-- a hashtable of value references: `HashTable k (UTCTime, TVar a)`, which is also
-  mutable (uses `ST`)
+- a mutable map of values: `STMContainers.Map.Map k (UTCTime, a)`
 
 ### Insertion
 
 Inserting a new value first performs a lookup on the hashtable to see if the key
 already exists:
 
-- If it doesn't, make a new TVar for the value, and get the current time, the insert
-  that into the hashtable. Then, insert the time you used and the key itself into
+- If it doesn't, insert the current time and the element that into the mutable map.
+  Then, insert the _key_ as the value, and the _time_ as the key into
   the time-indexed multimap.
 - If it does, remove the entry from the time-indexed multimap for the old time, before
-  doing the same thing as the first bullet (except we `writeTVar` instead of making
-  a new one).
+  doing the same thing as the first bullet.
 
 ### Lookups
 
-These don't have to interact with the time map. All you need to do is lookup the
-key in the hashmap, and pull the value out of the TVar if it exists.
+This doesn't have to create new data, and thus doesn't need full `IO`. All it does is
+lookup the key in the mutable map.
 
 ### Filtering
 
 To filter out all entries older than some time, you have to use the `Data.Map.splitLookup`
 function to split the time-indexed multimap into the entries you want to delete from
-the hashtable, and the ones you want to keep. You simply `writeTVar` the map you want
+the main container, and the ones you want to keep. You simply `writeTVar` the map you want
 to keep, but for the ones you want to delete, you need to get all the `elems` of
 that map. Then, for every key that we need to delete, we delete it from the
-hashtable.
+main container. Suprisingly, this appears to operate in constant time, regardless of
+the size of the map.
 
 ## How to run tests
 
