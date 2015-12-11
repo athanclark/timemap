@@ -1,3 +1,7 @@
+{-# LANGUAGE
+    BangPatterns
+  #-}
+
 {- |
 Module      : Data.TimeMap
 Copyright   : (c) 2015 Athan Clark
@@ -48,6 +52,12 @@ import qualified STMContainers.Map        as HT
 import qualified Focus                    as F
 import qualified ListT                    as L
 import Control.Concurrent.STM
+
+
+data TimeIndexed a = TimeIndexed
+  { indexedTime  :: {-# UNPACK #-} !UTCTime
+  , indexedValue :: a
+  }
 
 
 -- | A mutable reference for a time-indexed map, similar to a 'Data.STRef.STRef'.
