@@ -22,9 +22,11 @@ Library
   Other-Modules:        Data.TimeMap.Internal
   Build-Depends:        base >= 4.8 && < 5
                       , containers
+                      , focus
                       , hashable
-                      , hashtables
+                      , list-t
                       , stm
+                      , stm-containers
                       , time
                       , unordered-containers
 
@@ -40,9 +42,11 @@ Test-Suite spec
                         Data.TimeMapSpec
   Build-Depends:        base
                       , containers
+                      , focus
                       , hashable
-                      , hashtables
+                      , list-t
                       , stm
+                      , stm-containers
                       , time
                       , unordered-containers
                       , tasty
@@ -62,9 +66,11 @@ Benchmark bench
                         Data.TimeMap.Internal
   Build-Depends:        base
                       , containers
+                      , focus
                       , hashable
-                      , hashtables
+                      , list-t
                       , stm
+                      , stm-containers
                       , time
                       , unordered-containers
                       , criterion
@@ -83,9 +89,11 @@ Executable bench2
                         Data.TimeMap.Internal
   Build-Depends:        base
                       , containers
+                      , focus
                       , hashable
-                      , hashtables
+                      , list-t
                       , stm
+                      , stm-containers
                       , time
                       , unordered-containers
 

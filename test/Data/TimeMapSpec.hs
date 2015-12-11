@@ -13,6 +13,7 @@ import Test.Tasty.QuickCheck as QC
 import Test.QuickCheck
 import Test.QuickCheck.Instances
 
+import Control.Concurrent.STM
 import Control.Concurrent (threadDelay)
 
 
@@ -39,7 +40,7 @@ newtype BuiltTimeMap = BuiltTimeMap
 
 buildTimeMap :: BuiltTimeMap -> IO (TimeMap Key Content)
 buildTimeMap xs = do
-  x <- TM.newTimeMap
+  x <- atomically $ TM.newTimeMap
   mapM_ (\(k,v) -> TM.insert k v x) $ getBuiltTimeMap xs
   return x
 
@@ -48,14 +49,14 @@ lookupInsertExists :: Key -> Content -> BuiltTimeMap -> Property
 lookupInsertExists k v xs = ioProperty $ do
   x  <- buildTimeMap xs
   TM.insert k v x
-  isJust <$> TM.lookup k x
+  isJust <$> atomically (TM.lookup k x)
 
 
 lookupDeleteNotExists :: Key -> BuiltTimeMap -> Property
 lookupDeleteNotExists k xs = ioProperty $ do
   x <- buildTimeMap xs
-  TM.delete k x
-  isNothing <$> TM.lookup k x
+  atomically (TM.delete k x)
+  isNothing <$> atomically (TM.lookup k x)
 
 lookupAgoNotExists :: Key -> Content -> BuiltTimeMap -> Property
 lookupAgoNotExists k v xs = ioProperty $ do
@@ -63,7 +64,7 @@ lookupAgoNotExists k v xs = ioProperty $ do
   TM.insert k v x
   threadDelay 1000000
   TM.filterFromNow 1 x
-  isNothing <$> TM.lookup k x
+  isNothing <$> atomically (TM.lookup k x)
 
 lookupAgoExists :: Key -> Content -> BuiltTimeMap -> Property
 lookupAgoExists k v xs = ioProperty $ do
@@ -71,4 +72,4 @@ lookupAgoExists k v xs = ioProperty $ do
   TM.insert k v x
   threadDelay 500000
   TM.filterFromNow 1 x
-  isJust <$> TM.lookup k x
+  isJust <$> atomically (TM.lookup k x)
