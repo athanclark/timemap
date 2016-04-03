@@ -34,6 +34,7 @@ module Data.TimeMap
   , ageOf
   , keys
   , elems
+  , toList
   , size
   , null
   , -- * Filter
@@ -46,13 +47,14 @@ module Data.TimeMap
 import Prelude hiding (lookup, null, filter)
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, getCurrentTime)
 import Data.Hashable (Hashable (..))
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import qualified Data.Map.Strict          as Map
 import qualified Data.HashSet             as HS
 import qualified Data.TimeMap.Internal    as MM
 import qualified STMContainers.Map        as HT
 import qualified Focus                    as F
 import qualified ListT                    as L
+import Control.Monad (forM)
 import Control.Concurrent.STM
 
 
@@ -99,9 +101,8 @@ insert k x xs = do
 lookup :: ( Hashable k
           , Eq k
           ) => k -> TimeMap k a -> STM (Maybe a)
-lookup k xs = do
-  mx <- HT.lookup k (keysMap xs)
-  pure $! indexedValue <$> mx
+lookup k xs =
+  (\mx' -> indexedValue <$> mx') <$> HT.lookup k (keysMap xs)
 
 {-# INLINEABLE lookup #-}
 
@@ -114,6 +115,15 @@ keys xs = MM.elems <$> readTVar (timeMap xs)
 
 elems :: TimeMap k a -> STM [a]
 elems xs = L.toList $ (indexedValue . snd) <$> HT.stream (keysMap xs)
+
+toList :: ( Hashable k
+          , Eq k
+          ) => TimeMap k a -> STM [(k, a)]
+toList xs = do
+  keys' <- (HS.toList . MM.elems) <$> readTVar (timeMap xs)
+  forM keys' $ \k -> do
+    mVal <- HT.lookup k (keysMap xs)
+    pure (k, indexedValue (fromJust mVal))
 
 size :: TimeMap k a -> STM Int
 size xs = length <$> elems xs

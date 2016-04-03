@@ -55,3 +55,12 @@ elems :: ( Hashable a
 elems = foldr HS.union HS.empty
 
 {-# INLINEABLE elems #-}
+
+toList :: ( Hashable a
+          , Eq a
+          ) => MultiMap k a -> [(k, a)]
+toList =
+  Map.foldrWithKey go []
+  where
+    go :: k -> HS.HashSet a -> [(k, a)] -> [(k, a)]
+    go k x acc = repeat k `zip` HS.toList x ++ acc
