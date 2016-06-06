@@ -25,8 +25,11 @@ module Data.TimeMap
   , -- * Construction
     newTimeMap
   , insert
+  , insertWithTime
   , update
+  , updateWithTime
   , adjust
+  , adjustWithTime
   , delete
   , -- * Query
     lookup
@@ -83,19 +86,26 @@ insert :: ( Hashable k
           ) => k -> a -> TimeMap k a -> IO ()
 insert k x xs = do
   now <- getCurrentTime
-  atomically $ HT.focus (go now) k (keysMap xs)
+  atomically $ insertWithTime now k x xs
+
+{-# INLINEABLE insert #-}
+
+insertWithTime :: ( Hashable k
+                  , Eq k
+                  ) => UTCTime -> k -> a -> TimeMap k a -> STM ()
+insertWithTime now k x xs =
+  HT.focus go k (keysMap xs)
   where
-    go now mx = do
+    go mx = do
       modifyTVar (timeMap xs) $
         let changeOld = case mx of
                           Nothing -> id
                           Just (TimeIndexed oldTime _) ->
                             MM.remove oldTime k
-        in MM.insert now k . changeOld
+        in  MM.insert now k . changeOld
       pure ((), F.Replace (TimeIndexed now x))
 
-{-# INLINEABLE insert #-}
-
+{-# INLINEABLE insertWithTime #-}
 
 -- | Performs a non-mutating lookup for some key.
 lookup :: ( Hashable k
@@ -156,10 +166,18 @@ update :: ( Hashable k
           ) => (a -> Maybe a) -> k -> TimeMap k a -> IO ()
 update p k xs = do
   now <- getCurrentTime
-  atomically $! HT.focus (go now) k (keysMap xs)
+  atomically $ updateWithTime now p k xs
+
+{-# INLINEABLE update #-}
+
+updateWithTime :: ( Hashable k
+                  , Eq k
+                  ) => UTCTime -> (a -> Maybe a) -> k -> TimeMap k a -> STM ()
+updateWithTime now p k xs =
+  HT.focus go k (keysMap xs)
   where
-    go _ Nothing = pure ((), F.Keep)
-    go now (Just (TimeIndexed oldTime y)) =
+    go Nothing = pure ((), F.Keep)
+    go (Just (TimeIndexed oldTime y)) =
       let (action,minsert) =
             case p y of
               Nothing -> (F.Remove                      , MM.remove oldTime k)
@@ -167,7 +185,8 @@ update p k xs = do
       in do modifyTVar (timeMap xs) (MM.insert now k . minsert)
             pure ((), action)
 
-{-# INLINEABLE update #-}
+{-# INLINEABLE updateWithTime #-}
+
 
 -- | Adjusts the value at @k@, while updating its time.
 adjust :: ( Hashable k
@@ -175,14 +194,23 @@ adjust :: ( Hashable k
           ) => (a -> a) -> k -> TimeMap k a -> IO ()
 adjust f k xs = do
   now <- getCurrentTime
-  atomically $ HT.focus (go now) k (keysMap xs)
+  atomically $ adjustWithTime now f k xs
+
+{-# INLINEABLE adjust #-}
+
+adjustWithTime :: ( Hashable k
+                  , Eq k
+                  ) => UTCTime -> (a -> a) -> k -> TimeMap k a -> STM ()
+adjustWithTime now f k xs =
+  HT.focus go k (keysMap xs)
   where
-    go _ Nothing = pure ((), F.Keep)
-    go now (Just (TimeIndexed oldTime y)) = do
+    go Nothing = pure ((), F.Keep)
+    go (Just (TimeIndexed oldTime y)) = do
       modifyTVar (timeMap xs) (MM.insert now k . MM.remove oldTime k)
       pure ((), F.Replace (TimeIndexed now $! f y))
 
-{-# INLINEABLE adjust #-}
+{-# INLINEABLE adjustWithTime #-}
+
 
 -- | Deletes the value at @k@.
 delete :: ( Hashable k
