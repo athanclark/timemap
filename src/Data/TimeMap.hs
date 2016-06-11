@@ -31,6 +31,7 @@ module Data.TimeMap
   , adjust
   , adjustWithTime
   , delete
+  , touch
   , -- * Query
     lookup
   , timeOf
@@ -226,6 +227,14 @@ delete k xs = HT.focus go k (keysMap xs)
       pure ((), F.Remove)
 
 {-# INLINEABLE delete #-}
+
+
+-- | Resets the key to the current time, and fails silently when the key isn't
+--   present.
+touch :: ( Hashable k
+         , Eq k
+         ) => k -> TimeMap k a -> IO ()
+touch = adjust id
 
 filter :: ( Hashable k
           , Eq k
