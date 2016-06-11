@@ -236,6 +236,8 @@ touch :: ( Hashable k
          ) => k -> TimeMap k a -> IO ()
 touch = adjust id
 
+{-# INLINEABLE touch #-}
+
 filter :: ( Hashable k
           , Eq k
           ) => (a -> Bool) -> TimeMap k a -> STM ()
