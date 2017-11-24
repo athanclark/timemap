@@ -3,7 +3,7 @@ module Data.TimeSet where
 import Data.TimeMap (TimeMap, newTimeMap)
 import qualified Data.TimeMap as TimeMap
 import Data.Hashable (Hashable (..))
-import Data.Time (UTCTime, NominalDiffTime, addUTCTime, diffUTCTime, getCurrentTime)
+import Data.Time (UTCTime, NominalDiffTime)
 import qualified Data.HashSet             as HS
 import Control.Concurrent.STM (STM)
 
