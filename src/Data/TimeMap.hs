@@ -59,7 +59,7 @@ import qualified STMContainers.Map        as HT
 import qualified Focus                    as F
 import qualified ListT                    as L
 import Control.Monad (forM)
-import Control.Concurrent.STM
+import Control.Concurrent.STM (STM, atomically, TVar, writeTVar, readTVar, modifyTVar', modifyTVar, newTVar)
 
 
 data TimeIndexed a = TimeIndexed
