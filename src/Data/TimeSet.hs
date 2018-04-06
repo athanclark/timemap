@@ -63,8 +63,16 @@ filter :: (Hashable a, Eq a) => (a -> Bool) -> TimeSet a -> STM ()
 filter f (TimeSet xs) = TimeMap.filterWithKey (\k _ -> f k) xs
 
 
+takeSince :: (Hashable a, Eq a) => UTCTime -> TimeSet a -> STM [a]
+takeSince t (TimeSet xs) = fmap fst <$> TimeMap.takeSince t xs
+
+
 filterSince :: (Hashable a, Eq a) => UTCTime -> TimeSet a -> STM ()
 filterSince t (TimeSet xs) = TimeMap.filterSince t xs
+
+
+takeFromNow :: (Hashable a, Eq a) => NominalDiffTime -> TimeSet a -> IO [a]
+takeFromNow t (TimeSet xs) = fmap fst <$> TimeMap.takeFromNow t xs
 
 
 filterFromNow :: (Hashable a, Eq a) => NominalDiffTime -> TimeSet a -> IO ()
